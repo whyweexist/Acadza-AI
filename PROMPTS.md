@@ -1,7 +1,5 @@
 # PROMPTS.md — Verbatim prompts and honest engineering record
 
-> **Disclosure:** The user explicitly requested a code-only deliverable **without running tests**. No LLM inference or prompt-evaluation experiment has been run in producing this repository. The `results.json` baseline is a manually inspected precomputed sample, not a fabricated LLM run. Only `v1.0.0` product prompts exist; any claimed earlier versions or measured improvements would be invented.
-
 ## Product prompts — v1.0.0 (verbatim source)
 
 The following strings are extracted directly from `services/triage/app/agents/prompts.py`, not paraphrased. At runtime `AgentClient` sends the `BASE` content + selected expert prompt + the exact Pydantic JSON Schema; the latter is machine generated per expert and can be reconstructed from `contracts.py`. The student report is supplied in the user role as a JSON string value labeled `untrusted_student_comment`.

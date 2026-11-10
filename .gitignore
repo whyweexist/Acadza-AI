@@ -2,7 +2,6 @@
 .env.local
 .env.*.local
 *.sqlite
-*.sqlite3
 *.sqlite-*
 __pycache__/
 *.py[cod]

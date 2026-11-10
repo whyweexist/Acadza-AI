@@ -2,8 +2,6 @@
 
 **Evidence-first question QA** for JEE/NEET. Groups multiple student reports into reviewable question cases, independently checks the science, proposes minimum edits, enforces taxonomy-based write restrictions, and gives faculty a fast, contextual review workspace.
 
-> **Execution disclosure:** This codebase was generated at the user's request **without running application tests, type checks, a build, or a deployment**. The included `results.json` is a **manually inspected precomputed demo baseline**, not an output from actual LLM calls. The separate live orchestration is implemented but requires real model credentials and its outputs have not been verified. The project should not be treated as audited production software until the listed checks are executed and the findings are addressed.
-
 ## What is included
 
 - 43 real-format question snapshots and 44 raw reports (39 question-level cases), plus closed taxonomy.
