@@ -1,0 +1,29 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: services/triage/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      SQLITE_PATH: /app/runtime/acadza.sqlite3
+      ADMIN_REVIEW_TOKEN: ${ADMIN_REVIEW_TOKEN:?Set a strong token in .env}
+      CORS_ORIGINS: http://localhost:3000
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - acadza_sqlite:/app/runtime
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      API_BASE_URL: http://api:8000
+      REVIEW_TOKEN: ${ADMIN_REVIEW_TOKEN:?Set a strong token in .env}
+    depends_on:
+      - api
+    restart: unless-stopped
+volumes:
+  acadza_sqlite:
