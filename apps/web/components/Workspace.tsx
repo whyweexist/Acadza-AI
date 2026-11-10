@@ -1,5 +1,6 @@
 'use client';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import Image from 'next/image';
 import {Activity,ArrowDown,ArrowRight,ArrowUpRight,Bell,BookOpen,Check,CheckCheck,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Clock3,Code2,Command,Copy,FileDiff,Filter,GraduationCap,History,Info,Keyboard,LayoutDashboard,LoaderCircle,MessageSquare,MessagesSquare,Moon,Settings2,MoreHorizontal,PanelLeftClose,PanelLeftOpen,RefreshCw,Search,Shield,ShieldAlert,SlidersHorizontal,Sun,ThumbsDown,ThumbsUp,TriangleAlert,UserRound,WandSparkles,X} from 'lucide-react';
 import {MathContent} from './MathContent';
 import {CaseCard} from './queue/CaseCard';
@@ -135,7 +136,8 @@ export default function Workspace(){
 
  return <div className="shell">
   <aside className={`sidebar ${compact?'sidebar-compact':''}`}>
-   <div className="brand"><div className="brand-symbol"><GraduationCap size={23} strokeWidth={2.3}/></div>{!compact&&<div><strong>Acadza<span className="brand-dot">.</span></strong><span>Faculty workspace</span></div>}</div>
+   {/* <div className="brand"><div className="brand-symbol"><GraduationCap size={23} strokeWidth={2.3}/></div>{!compact&&<div><strong>Acadza<span className="brand-dot">.</span></strong><span>Faculty workspace</span></div>}</div> */}
+   <div className="brand"><div className="brand-symbol"><Image src="https://www.acadza.com/assets/icons/acadzalogo.svg" alt="Acadza" width={28} height={28} unoptimized/></div>{!compact&&<div><strong>Acadza<span className="brand-dot">.</span></strong><span>Faculty workspace</span></div>}</div>
    <div className="side-section-label">{!compact?'WORKSPACE':'•••'}</div>
    <button className={`nav-item ${view==='queue'?'nav-active':''}`} onClick={()=>setView('queue')} title="Review queue"><LayoutDashboard size={19}/>{!compact&&<>Review queue<span className="nav-count">{queue.total}</span></>}</button>
    <button className={`nav-item ${view==='audit'?'nav-active':''}`} onClick={()=>setView('audit')} title="Audit trail"><History size={19}/>{!compact&&'Audit trail'}</button>
@@ -147,8 +149,15 @@ export default function Workspace(){
    <div className="sidebar-footer"><div className="avatar"><UserRound size={17}/></div>{!compact&&<div><strong>Faculty reviewer</strong><span>Quality assurance</span></div>}<button className="icon-button sidebar-collapse" title="Toggle sidebar" onClick={()=>setCompact(x=>!x)}>{compact?<PanelLeftOpen size={17}/>:<PanelLeftClose size={17}/>}</button></div>
   </aside>
   <div className="main-wrap">
-   <header className="topbar"><div className="top-breadcrumb"><span>Question quality</span><ChevronRight size={15}/><strong>{view==='queue'?'Review queue':view==='audit'?'Audit trail':view==='providers'?'AI providers':'Insights'}</strong></div><div className="top-actions"><span className={`connection ${serverMode==='live'?'connection-live':'connection-demo'}`}><span className="pulse-dot"/>{serverMode==='live'?'SQLite connected':'Read-only demo'}</span><button className="icon-button" title="Toggle theme" onClick={()=>setDark(v=>!v)}>{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Refresh data" onClick={()=>void fetchQueue()}><RefreshCw size={18}/></button><span className="top-avatar">F</span></div></header>
-   {view==='queue'?<main className="queue-layout">
+   <header className="topbar"><Image className="mobile-brand-logo" src="https://www.acadza.com/assets/icons/acadzalogo.svg" alt="Acadza" width={94} height={30} unoptimized/><div className="top-breadcrumb"><span>Question quality</span><ChevronRight size={15}/><strong>{view==='queue'?'Review queue':view==='audit'?'Audit trail':view==='providers'?'AI providers':'Insights'}</strong></div><div className="top-actions"><span className={`connection ${serverMode==='live'?'connection-live':'connection-demo'}`}><span className="pulse-dot"/>{serverMode==='live'?'SQLite connected':'Read-only demo'}</span><button className="icon-button" title="Toggle theme" onClick={()=>setDark(v=>!v)}>{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Refresh data" onClick={()=>void fetchQueue()}><RefreshCw size={18}/></button><span className="top-avatar">F</span></div></header>
+  <nav className="mobile-nav" aria-label="Workspace navigation">
+   <button className={view==='queue'?'mobile-nav-active':''} aria-current={view==='queue'?'page':undefined} onClick={()=>setView('queue')}><LayoutDashboard size={17}/>Queue</button>
+   <button className={view==='audit'?'mobile-nav-active':''} aria-current={view==='audit'?'page':undefined} onClick={()=>setView('audit')}><History size={17}/>Audit</button>
+   <button className={view==='insights'?'mobile-nav-active':''} aria-current={view==='insights'?'page':undefined} onClick={()=>setView('insights')}><Activity size={17}/>Insights</button>
+   <button className={view==='providers'?'mobile-nav-active':''} aria-current={view==='providers'?'page':undefined} onClick={()=>setView('providers')}><Settings2 size={17}/>Providers</button>
+  </nav>
+   {/* <header className="topbar"><div className="top-breadcrumb"><span>Question quality</span><ChevronRight size={15}/><strong>{view==='queue'?'Review queue':view==='audit'?'Audit trail':view==='providers'?'AI providers':'Insights'}</strong></div><div className="top-actions"><span className={`connection ${serverMode==='live'?'connection-live':'connection-demo'}`}><span className="pulse-dot"/>{serverMode==='live'?'SQLite connected':'Read-only demo'}</span><button className="icon-button" title="Toggle theme" onClick={()=>setDark(v=>!v)}>{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Refresh data" onClick={()=>void fetchQueue()}><RefreshCw size={18}/></button><span className="top-avatar">F</span></div></header>
+   {view==='queue'?<main className="queue-layout"> */}
     <section className="queue-pane">
      <div className="pane-heading"><div className="eyebrow"><span className="eyebrow-line"/>QUALITY OPERATIONS</div><h1>Review queue<span className="heading-count">{queue.total}</span></h1><p>One question, one decision. Every report considered.</p></div>
      <div className="queue-stats"><div><strong>{queue.items.filter(x=>x.route==='faculty_review'&&!['approved','rejected'].includes(x.status)).length}</strong><span>Needs review</span></div><div><strong>{queue.items.filter(x=>x.route==='auto_apply').length}</strong><span>Auto-eligible</span></div><div><strong>{queue.items.filter(x=>['approved','rejected'].includes(x.status)).length}</strong><span>Resolved</span></div></div>
