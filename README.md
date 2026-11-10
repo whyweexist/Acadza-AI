@@ -78,17 +78,69 @@ When the API is unavailable, the console automatically loads packaged read-only 
 
 `API_BASE_URL` and `REVIEW_TOKEN` are **server-side Next.js environment variables**; do not expose them via `NEXT_PUBLIC_` variables.
 
-## 3. Live LLM orchestration (optional; not exercised in this handoff)
+## 3. Choose Gemini, OpenRouter or OpenAI
 
-From the root after configuring `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `LLM_CHEAP_MODEL` and `LLM_STRONG_MODEL`:
+**Option A — from the faculty console:** Run both the SQLite API and Next.js as above, then open **AI providers** in the sidebar. Enter the value of `ADMIN_REVIEW_TOKEN` (from the root `.env`) into the masked admin-token field. Pick **Google Gemini**, **OpenRouter**, or **OpenAI**; enter the API key and the fast/strong model IDs; click **Save provider**, then **Test connection**. Open a question in the queue and select **Configure / run AI checks**, or enter that question's `_id` in the provider page and click **Run LLM checks**. Live results are saved in the SQLite review queue and labeled "Live AI checked". The application never applies a patch to the production question bank.
+
+**This UI option is transient:** API keys are held in server process memory only; they are **never stored in SQLite, source files, localStorage, cookies, or returned in responses**. They disappear when the API restarts. Admin tokens and unsaved pasted keys are kept only in the page's React state. **Do not use the key-entry screen on a public/untrusted demo; restrict it to authorized faculty and HTTPS.** Set secrets as deployment environment variables for persistent use. The admin token protects all key-management operations and live verification jobs; there is no public key-management API.
+
+**Option B — root `.env` (persistent and compatible with CLI):**
+
+For Gemini:
+
+```env
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-key
+# Optional. Leave blank for defaults.
+LLM_CHEAP_MODEL=gemini-2.5-flash
+LLM_STRONG_MODEL=gemini-2.5-pro
+```
+
+For OpenRouter:
+
+```env
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=your-openrouter-key
+LLM_CHEAP_MODEL=google/gemini-2.5-flash
+LLM_STRONG_MODEL=google/gemini-2.5-pro
+```
+
+For OpenAI:
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-openai-key
+LLM_CHEAP_MODEL=gpt-4.1-mini
+LLM_STRONG_MODEL=gpt-4.1
+```
+
+Obtain credentials at [Google AI Studio](https://aistudio.google.com/apikey), [OpenRouter](https://openrouter.ai/settings/keys), or [OpenAI](https://platform.openai.com/api-keys). **You supply the key yourself; no key is included in this repository.** Provider model catalogs change: check that the model IDs you choose are available to your account and support JSON output. The **Test connection** button verifies your credentials without running an LLM generation; model support is checked only during live inference. Failed calls are recorded as requiring faculty review, not guessed.
+
+To triage **all 44 reports** and update the file when every case completes, run from the repository root:
 
 ```bash
 python services/triage/scripts/triage.py
 ```
 
-Per question, it performs static prechecks, then two independent async tracks (`asyncio.gather`, bounded by a semaphore): structured claims extracted from untrusted reports and report-blind solution audits/solvers. The adjudicator proposes fixes, pure-code rules determine route and safety, and a reply is generated **per report**. A failed expert validation gets one retry, then the case is flagged `failed_review` in SQLite without falsely manufacturing a confirmed defect. If any question fails, the script preserves the existing `results.json` and writes failure details separately.
+The CLI uses **environment variables**; transient keys entered through the web UI are visible only to the running FastAPI process, not a separate CLI process. The CLI validates 44 reports using the same provider adapter. On any failure it leaves `results.json` untouched and writes `triage_failures.json`. The run can make many paid LLM calls: a single question can use two strong solvers, a solution audit, an adjudicator, lint/metadata and per-report replies. Budget and rate-limit accordingly.
 
-**Important:** Running live inference without supervision can consume model credits and is not proof that the model's mathematics is accurate. Human-evaluate the output and run safety tests before considering auto-writes.
+The **Run LLM checks** action in the web console creates a small background verification job **for one question**. Its state is stored in SQLite; jobs are executed in the FastAPI event loop and polled by the UI. This is a practical single-process assignment demo, **not a durable production worker**. Restarted or interrupted jobs are explicitly marked `interrupted`; deploy a separate SQLite-backed persistent worker for dependable large-scale processing. The question content is never automatically published to a production store.
+
+The three services use official OpenAI-compatible Chat Completions APIs. Gemini uses `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, OpenRouter uses `https://openrouter.ai/api/v1/chat/completions`, and OpenAI uses its standard endpoint. Gemini's compatibility layer is beta and some model/JSON-mode combinations may be unsupported.
+
+### Credential troubleshooting
+
+- **The UI still says “No LLM checks”:** A key only enables inference; it does not retroactively verify precomputed data. Open **AI providers → Run LLM checks** for the selected case. Verify that the API is live rather than the read-only demo.
+- **403:** Enter the same `ADMIN_REVIEW_TOKEN` configured in the backend. The Next.js proxy does not insert any hidden server token for provider operations.
+- **401 from Gemini/OpenRouter:** Confirm the key belongs to that provider; try **Test connection**. Do not include `Bearer ` when pasting a key.
+- **Model or JSON-mode error:** Use a provider model that supports chat completions and structured JSON output; inspect the backend logs. The pipeline fails closed.
+- **Settings disappear after restart:** Intended. Use `.env` for persistent server-side credentials.
+
+### Provider-specific documentation
+
+- Gemini official OpenAI compatibility: https://ai.google.dev/gemini-api/docs/openai
+- OpenRouter API reference: https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request
+- OpenRouter API key inspection endpoint: https://openrouter.ai/docs/api/api-reference/api-keys/get-current-key
 
 ## 4. Regenerate precomputed sample snapshots
 

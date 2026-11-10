@@ -1,5 +1,6 @@
 # PROMPTS.md — Verbatim prompts and honest engineering record
 
+> **Disclosure:** The user explicitly requested a code-only deliverable **without running tests**. No LLM inference or prompt-evaluation experiment has been run in producing this repository. The `results.json` baseline is a manually inspected precomputed sample, not a fabricated LLM run. Only `v1.0.0` product prompts exist; any claimed earlier versions or measured improvements would be invented.
 
 ## Product prompts — v1.0.0 (verbatim source)
 
@@ -70,7 +71,7 @@ Write 1-3 sentences for a stressed JEE/NEET student. Plain and kind; mirror the 
 ### User request: SQLite architecture amendment and implementation
 
 ```text
-I want you to make the UI highly feasible and interactive and proper modules for it also integrate the part of the prompt below and use it whatever needed to you or fits best for you in your current prompt 
+I want you to remove the postgres completely and use sql lite also I wnat you to make the UI highly feasible and interactive and proper modules for it also integrate the part of the prompt below and use it whatever needed to you or fits best for you in your current prompt 
 DOMAIN RULES
 - Key questions on _id; qid is not unique. The body lives under the key named
   by questionType (scq | mcq | integerQuestion).
@@ -133,6 +134,9 @@ SAFETY GATE (pure code, final authority)
   0.85 (0.9 for answer_key). Anything uncertain goes to faculty_review.
 
 
+
+
+Now your task is to give me a zip file of the whole codebase do not test it write me the code and give me the final zip
 ```
 
 ### Other real instructions available in this conversation
@@ -162,3 +166,15 @@ The brief requests three moments where the AI was wrong and how it was caught. *
 | Tests | Included, intentionally not executed | Explicit user instruction “do not test it” | Fabricated green test reports |
 
 **Unverified / future decisions:** Provider/model accuracy, token budgets, real latency, test suite reliability, strict question-patch parser properties and faculty usability must be evaluated before any production auto-publication. No trial was falsely claimed to have been performed.
+
+## Change request: Gemini / OpenRouter provider integration
+
+The existing product prompts in `app/agents/prompts.py` have **not been edited** for this change. Provider selection and credentials are a transport concern, not new prompt instructions. Provider/model names are recorded with each live run and included in cache fingerprints.
+
+**Verbatim user request initiating the change:**
+
+> could you please add the option to add gemini api key or openrouter api key
+
+**Implementation direction:** Add a server-only OpenAI-compatible provider adapter for Gemini and OpenRouter, a faculty-token-protected UI to select a provider, enter a masked API key, choose fast and verification models and check credentials, plus a real single-question live verification job backed by SQLite status and the existing deterministic safety gate. Never store API keys in SQLite or browser storage. Keep the existing OpenAI option and CLI support. Use environment variables for persistent deployment settings.
+
+**What was deliberately not changed:** Solver A and B remain report-blind; untrusted comments remain confined to claim/reply agents; the LLM still cannot override the pure-code safety gate. Existing `results.json` remains the precomputed sample until the real pipeline is executed. No new test or accuracy claims are implied by the provider addition.

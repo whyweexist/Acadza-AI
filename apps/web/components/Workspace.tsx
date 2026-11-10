@@ -1,17 +1,18 @@
 'use client';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Activity,ArrowDown,ArrowRight,ArrowUpRight,Bell,BookOpen,Check,CheckCheck,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Clock3,Code2,Command,Copy,FileDiff,Filter,GraduationCap,History,Info,Keyboard,LayoutDashboard,LoaderCircle,MessageSquare,MessagesSquare,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,RefreshCw,Search,Shield,ShieldAlert,SlidersHorizontal,Sun,ThumbsDown,ThumbsUp,TriangleAlert,UserRound,WandSparkles,X} from 'lucide-react';
+import {Activity,ArrowDown,ArrowRight,ArrowUpRight,Bell,BookOpen,Check,CheckCheck,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,Clock3,Code2,Command,Copy,FileDiff,Filter,GraduationCap,History,Info,Keyboard,LayoutDashboard,LoaderCircle,MessageSquare,MessagesSquare,Moon,Settings2,MoreHorizontal,PanelLeftClose,PanelLeftOpen,RefreshCw,Search,Shield,ShieldAlert,SlidersHorizontal,Sun,ThumbsDown,ThumbsUp,TriangleAlert,UserRound,WandSparkles,X} from 'lucide-react';
 import {MathContent} from './MathContent';
 import {CaseCard} from './queue/CaseCard';
 import {QuestionTab,DiffTab,ReportsTab,AuditTab} from './cases/CaseTabs';
 import {EvidencePanel} from './cases/EvidencePanel';
 import {ReplyPreview} from './cases/ReplyPreview';
 import {ReviewDialog} from './review/ReviewDialog';
+import {ProviderSettings} from './settings/ProviderSettings';
 import {human,shortId,relative,formatDate,priorityLabel,previewPatch,diffSegments,fieldValue} from '@/lib/utils';
 import type {CaseSummary,CaseDetail,QueueResponse,Edit,Tab,ActionType,TriageResult} from '@/lib/types';
 
 const initialQueue:QueueResponse={items:[],total:0,counts:{all:0,needs_review:0,auto_eligible:0,resolved:0}};
-type View = 'queue'|'audit'|'insights';
+type View = 'queue'|'audit'|'insights'|'providers';
 function Label({children,kind='muted'}:{children:React.ReactNode;kind?:string}){return <span className={`tag tag-${kind}`}>{children}</span>}
 
 export default function Workspace(){
@@ -20,6 +21,7 @@ export default function Workspace(){
  const [detail,setDetail]=useState<CaseDetail|null>(null);
  const [isLoading,setIsLoading]=useState(true);
  const [detailLoading,setDetailLoading]=useState(false);
+ const [detailNonce,setDetailNonce]=useState(0);
  const [serverMode,setServerMode]=useState<'live'|'demo'>('demo');
  const [error,setError]=useState('');
  const [toast,setToast]=useState('');
@@ -56,6 +58,7 @@ export default function Workspace(){
   }catch(e){setError(e instanceof Error?e.message:'Unable to fetch cases');}
   finally{setIsLoading(false)}
  },[]);
+ const onCaseRechecked=useCallback(()=>{void fetchQueue();setDetailNonce(n=>n+1)},[fetchQueue]);
  useEffect(()=>{void fetchQueue()},[fetchQueue]);
  useEffect(()=>{
   if(!selected){setDetail(null);return}
@@ -68,7 +71,7 @@ export default function Workspace(){
   window.history.replaceState(null,'',selected?`?case=${encodeURIComponent(selected)}`:window.location.pathname);
   if(panelRef.current)panelRef.current.scrollTop=0;
   return ()=>controller.abort();
- },[selected]);
+ },[selected,detailNonce]);
  useEffect(()=>{document.documentElement.dataset.theme=dark?'dark':'light'},[dark]);
  useEffect(()=>{if(view==='audit')void fetch('/api/audit').then(r=>r.json()).then(v=>Array.isArray(v)?setAllAudit(v):setAllAudit([])).catch(()=>setAllAudit([]))},[view]);
 
@@ -137,13 +140,14 @@ export default function Workspace(){
    <button className={`nav-item ${view==='queue'?'nav-active':''}`} onClick={()=>setView('queue')} title="Review queue"><LayoutDashboard size={19}/>{!compact&&<>Review queue<span className="nav-count">{queue.total}</span></>}</button>
    <button className={`nav-item ${view==='audit'?'nav-active':''}`} onClick={()=>setView('audit')} title="Audit trail"><History size={19}/>{!compact&&'Audit trail'}</button>
    <button className={`nav-item ${view==='insights'?'nav-active':''}`} onClick={()=>setView('insights')} title="Insights"><Activity size={19}/>{!compact&&'Insights'}</button>
+   <button className={`nav-item ${view==='providers'?'nav-active':''}`} onClick={()=>setView('providers')} title="AI providers"><Settings2 size={19}/>{!compact&&'AI providers'}</button>
    <div className="sidebar-grow"/>
    {!compact&&<div className="sidebar-tip"><span className="tip-light"><Shield size={16}/></span><strong>Safety first</strong><p>AI proposes. Deterministic checks and faculty decide.</p></div>}
    <button className="nav-item sidebar-bottom" onClick={()=>setShortcutHelp(true)} title="Keyboard shortcuts"><Keyboard size={18}/>{!compact&&'Keyboard shortcuts'}{!compact&&<span className="key-cap">?</span>}</button>
    <div className="sidebar-footer"><div className="avatar"><UserRound size={17}/></div>{!compact&&<div><strong>Faculty reviewer</strong><span>Quality assurance</span></div>}<button className="icon-button sidebar-collapse" title="Toggle sidebar" onClick={()=>setCompact(x=>!x)}>{compact?<PanelLeftOpen size={17}/>:<PanelLeftClose size={17}/>}</button></div>
   </aside>
   <div className="main-wrap">
-   <header className="topbar"><div className="top-breadcrumb"><span>Question quality</span><ChevronRight size={15}/><strong>{view==='queue'?'Review queue':view==='audit'?'Audit trail':'Insights'}</strong></div><div className="top-actions"><span className={`connection ${serverMode==='live'?'connection-live':'connection-demo'}`}><span className="pulse-dot"/>{serverMode==='live'?'SQLite connected':'Read-only demo'}</span><button className="icon-button" title="Toggle theme" onClick={()=>setDark(v=>!v)}>{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Refresh data" onClick={()=>void fetchQueue()}><RefreshCw size={18}/></button><span className="top-avatar">F</span></div></header>
+   <header className="topbar"><div className="top-breadcrumb"><span>Question quality</span><ChevronRight size={15}/><strong>{view==='queue'?'Review queue':view==='audit'?'Audit trail':view==='providers'?'AI providers':'Insights'}</strong></div><div className="top-actions"><span className={`connection ${serverMode==='live'?'connection-live':'connection-demo'}`}><span className="pulse-dot"/>{serverMode==='live'?'SQLite connected':'Read-only demo'}</span><button className="icon-button" title="Toggle theme" onClick={()=>setDark(v=>!v)}>{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Refresh data" onClick={()=>void fetchQueue()}><RefreshCw size={18}/></button><span className="top-avatar">F</span></div></header>
    {view==='queue'?<main className="queue-layout">
     <section className="queue-pane">
      <div className="pane-heading"><div className="eyebrow"><span className="eyebrow-line"/>QUALITY OPERATIONS</div><h1>Review queue<span className="heading-count">{queue.total}</span></h1><p>One question, one decision. Every report considered.</p></div>
@@ -158,7 +162,7 @@ export default function Workspace(){
       {detailLoading?<div className="detail-loading"><div className="skeleton skeleton-title"/><div className="skeleton skeleton-block"/><div className="skeleton skeleton-block"/></div>:detail?<>
        <div className="detail-heading"><div className="detail-head-top"><span className="case-number">CASE / {shortId(detail.question_id)}</span><div className="detail-head-tools"><button className="icon-button" title="Copy question ID" onClick={()=>void copy(detail.question_id,'Question ID copied')}><Copy size={16}/></button><button className="icon-button" title="Copy link" onClick={()=>void copy(window.location.href,'Case link copied')}><ArrowUpRight size={17}/></button><button className="icon-button" title="Previous case" onClick={()=>move(-1)}><ChevronLeft size={17}/></button><button className="icon-button" title="Next case" onClick={()=>move(1)}><ChevronRight size={17}/></button></div></div>
         <h2>{detail.chapter}<span className="heading-muted"> · {detail.subject}</span></h2>
-        <div className="detail-meta"><Label kind="blue">{human(detail.question_type)}</Label><Label kind={result?.verdict==='defect'?'red':'green'}>{human(result?.verdict||'Pending')}</Label><Label kind={detail.status==='approved'?'green':detail.status==='rejected'?'red':'muted'}>{human(detail.status)}</Label><span className="hash-meta"><Shield size={13}/> Version {detail.question_hash.slice(0,9)}</span></div>
+        <div className="detail-meta"><Label kind="blue">{human(detail.question_type)}</Label><Label kind={result?.verdict==='defect'?'red':'green'}>{human(result?.verdict||'Pending')}</Label><Label kind={detail.status==='approved'?'green':detail.status==='rejected'?'red':'muted'}>{human(detail.status)}</Label><span className="hash-meta"><Shield size={13}/> Version {detail.question_hash.slice(0,9)}</span><Label kind={detail.triage_status==='completed'?'green':'muted'}>{detail.triage_status==='completed'?'Live AI checked':detail.triage_status==='precomputed'?'Precomputed · no LLM checks':human(detail.triage_status)}</Label><button className="live-check-link" onClick={()=>setView('providers')}><Settings2 size={14}/> Configure / run AI checks</button></div>
        </div>
        <div className="detail-inner"><EvidencePanel result={activeResult||null} meta={detail.meta} expanded={expandedEvidence} onToggle={()=>setExpandedEvidence(v=>!v)}/>
        {detail.meta.triage_status==='failed_review'&&<div className="warning-line"><TriangleAlert size={17}/> Live AI verification failed. This case needs manual review; no defect was fabricated.</div>}
@@ -171,7 +175,7 @@ export default function Workspace(){
        </div>
        <div className="actionbar"><div className="action-help"><div className="action-help-icon"><Info size={17}/></div><div><strong>Review decision</strong><span>{serverMode==='demo'?'Demo is read-only · Connect SQLite backend to save actions':'Actions are version-checked and audited. Never a direct production write.'}</span></div></div><div className="review-buttons"><button className="review-reject" disabled={serverMode==='demo'||['approved','rejected'].includes(detail.status)} onClick={()=>openModal('reject')}><X size={17}/>Reject</button><button className="review-edit" disabled={serverMode==='demo'||!result?.edit||['approved','rejected'].includes(detail.status)} onClick={()=>openModal('edit')}><SlidersHorizontal size={16}/>Edit</button><button className="review-approve" disabled={serverMode==='demo'||!result?.edit||['approved','rejected'].includes(detail.status)} onClick={()=>openModal('approve')}><Check size={17}/>Approve</button></div></div>
       </>:<div className="detail-empty"><div><BookOpen size={32}/></div><h2>Select a question to review</h2><p>Choose an item from the queue to inspect its evidence, question, proposed patch and student communication.</p></div>}
-    </section></main>:view==='audit'?<div className="standalone"><div className="eyebrow">TRACEABLE DECISIONS</div><h1>Audit trail</h1><p>Every human action is preserved as a durable SQLite event. Precomputed decisions do not count as faculty actions.</p><div className="standalone-card">{allAudit.length?allAudit.map(a=><button key={a.id} className="audit-list-row" onClick={()=>{setSelected(a.question_id);setTab('audit');setView('queue')}}><History size={17}/><div><strong>{human(a.action)} · {shortId(a.question_id)}</strong><span>{a.actor} · {a.note||'No note'}</span></div><time>{formatDate(a.created_at)}</time><ArrowUpRight size={16}/></button>):<div className="empty-panel"><History size={30}/><strong>No review activity yet</strong><p>Authenticated approvals, edits and rejections will appear here.</p></div>}</div></div>:<div className="standalone"><div className="eyebrow">QUALITY SIGNALS</div><h1>Operations overview</h1><p>Sample-based statistics from the supplied Acadza reports, not a production-wide measurement.</p><div className="insights-grid">{[{icon:BookOpen,label:'Question cases',value:queue.total,sub:'Grouped by canonical _id'},{icon:ShieldAlert,label:'Faculty reviews',value:queue.items.filter(x=>x.route==='faculty_review').length,sub:'Potentially high-impact fixes'},{icon:WandSparkles,label:'Auto-eligible',value:queue.items.filter(x=>x.route==='auto_apply').length,sub:'Subject to deterministic gate'},{icon:CheckCheck,label:'Resolved',value:queue.items.filter(x=>['approved','rejected'].includes(x.status)).length,sub:'Human decisions in this workspace'}].map((x,i)=><div key={i} className="insight-card"><x.icon size={20}/><span>{x.label}</span><strong>{x.value}</strong><p>{x.sub}</p></div>)}</div><div className="standalone-card insights-explainer"><Shield size={22}/><div><h3>How urgency is calculated</h3><p>Verified defect severity, grading risk, number of distinct reports, oldest report age, and whether a case needs faculty review. Report volume alone never proves the student is right.</p></div></div></div>}
+    </section></main>:view==='audit'?<div className="standalone"><div className="eyebrow">TRACEABLE DECISIONS</div><h1>Audit trail</h1><p>Every human action is preserved as a durable SQLite event. Precomputed decisions do not count as faculty actions.</p><div className="standalone-card">{allAudit.length?allAudit.map(a=><button key={a.id} className="audit-list-row" onClick={()=>{setSelected(a.question_id);setTab('audit');setView('queue')}}><History size={17}/><div><strong>{human(a.action)} · {shortId(a.question_id)}</strong><span>{a.actor} · {a.note||'No note'}</span></div><time>{formatDate(a.created_at)}</time><ArrowUpRight size={16}/></button>):<div className="empty-panel"><History size={30}/><strong>No review activity yet</strong><p>Authenticated approvals, edits and rejections will appear here.</p></div>}</div></div>:view==='providers'?<ProviderSettings serverMode={serverMode} selectedCase={selected} onCaseRechecked={onCaseRechecked}/>:<div className="standalone"><div className="eyebrow">QUALITY SIGNALS</div><h1>Operations overview</h1><p>Sample-based statistics from the supplied Acadza reports, not a production-wide measurement.</p><div className="insights-grid">{[{icon:BookOpen,label:'Question cases',value:queue.total,sub:'Grouped by canonical _id'},{icon:ShieldAlert,label:'Faculty reviews',value:queue.items.filter(x=>x.route==='faculty_review').length,sub:'Potentially high-impact fixes'},{icon:WandSparkles,label:'Auto-eligible',value:queue.items.filter(x=>x.route==='auto_apply').length,sub:'Subject to deterministic gate'},{icon:CheckCheck,label:'Resolved',value:queue.items.filter(x=>['approved','rejected'].includes(x.status)).length,sub:'Human decisions in this workspace'}].map((x,i)=><div key={i} className="insight-card"><x.icon size={20}/><span>{x.label}</span><strong>{x.value}</strong><p>{x.sub}</p></div>)}</div><div className="standalone-card insights-explainer"><Shield size={22}/><div><h3>How urgency is calculated</h3><p>Verified defect severity, grading risk, number of distinct reports, oldest report age, and whether a case needs faculty review. Report volume alone never proves the student is right.</p></div></div></div>}
   </div>
   {modal&&detail&&<ReviewDialog action={modal} detail={detail} actor={actor} setActor={setActor} reason={reason} setReason={setReason} editing={editing} setEditing={setEditing} submitting={submitting} onClose={()=>setModal(null)} onSubmit={()=>void submit()}/>} 
   {shortcutHelp&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setShortcutHelp(false)}}><div className="shortcuts-modal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"><div className="modal-top"><h2>Keyboard shortcuts</h2><button className="icon-button" onClick={()=>setShortcutHelp(false)}><X size={18}/></button></div>{[['/','Focus search'],['J / ↓','Next question'],['K / ↑','Previous question'],['?','Toggle shortcuts'],['Esc','Close overlay']].map(([key,value])=><div className="shortcut-row" key={key}><span>{value}</span><kbd>{key}</kbd></div>)}</div></div>}

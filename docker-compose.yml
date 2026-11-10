@@ -9,7 +9,14 @@ services:
       SQLITE_PATH: /app/runtime/acadza.sqlite3
       ADMIN_REVIEW_TOKEN: ${ADMIN_REVIEW_TOKEN:?Set a strong token in .env}
       CORS_ORIGINS: http://localhost:3000
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      LLM_CHEAP_MODEL: ${LLM_CHEAP_MODEL:-}
+      LLM_STRONG_MODEL: ${LLM_STRONG_MODEL:-}
+      LLM_CONCURRENCY: ${LLM_CONCURRENCY:-4}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-50}
     volumes:
       - acadza_sqlite:/app/runtime
     restart: unless-stopped

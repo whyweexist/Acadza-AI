@@ -27,3 +27,9 @@ No model key is required for the precomputed console. For live AI triage, config
 - Confirm SQLite volume survives restarts, and test a restore from a backup.
 - Rotate credentials after the seven-day demo.
 - Record the actual live URL and video link only once created.
+
+### Gemini / OpenRouter settings
+
+Set `LLM_PROVIDER=gemini` and `GEMINI_API_KEY`, or `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY`, in the **API container/server environment**. Use `LLM_CHEAP_MODEL` / `LLM_STRONG_MODEL` to select available model IDs. Never use `NEXT_PUBLIC_` for credentials. The UI key-entry mode only holds secrets in FastAPI's memory and is not appropriate for publicly accessible, unauthenticated demo pages. The Next.js proxy requires a faculty-entered token, validated by FastAPI. Restrict the web console and the backend's review endpoints to authorized staff in deployed environments.
+
+Provider settings are not synchronized across multiple FastAPI worker processes. For production use env-injected secrets, a single control plane and durable verification workers. Demo jobs are not restart-durable and are marked interrupted on API restart; this avoids falsely displaying completion.

@@ -25,6 +25,7 @@ async function fallback(segments:string[]) {
 
 export async function GET(req:NextRequest,ctx:Ctx) {
   const {path:parts}=await ctx.params;
+  if(parts[0]==='llm')return providerProxy(req,ctx,'GET');
   const suffix=parts.map(encodeURIComponent).join('/');
   const controller=new AbortController();
   const t=setTimeout(()=>controller.abort(),4000);
@@ -42,6 +43,7 @@ export async function GET(req:NextRequest,ctx:Ctx) {
 
 export async function POST(req:NextRequest,ctx:Ctx) {
   const {path:parts}=await ctx.params;
+  if(parts[0]==='llm')return providerProxy(req,ctx,'POST');
   if(parts.length!==3 || parts[0]!=='cases' || parts[2]!=='actions')return NextResponse.json({error:'Invalid endpoint'},{status:404});
   if(!process.env.REVIEW_TOKEN)return NextResponse.json({detail:'Demo is read-only. Set REVIEW_TOKEN and start the SQLite API to review cases.'},{status:503});
   try {
@@ -55,3 +57,33 @@ export async function POST(req:NextRequest,ctx:Ctx) {
     return NextResponse.json({detail:'SQLite API unavailable. No review action was saved.'},{status:503});
   }
 }
+
+/** LLM credentials remain server-side. The admin explicitly enters a token for
+ * every provider-management request; unlike reviews, these requests NEVER use
+ * the Next.js server's implicit REVIEW_TOKEN environment credential. */
+async function providerProxy(req:NextRequest,ctx:Ctx,method:'GET'|'POST'|'PUT'|'DELETE') {
+  const {path:parts}=await ctx.params;
+  if(parts[0]!=='llm' || !(
+    (parts.length===2&&parts[1]==='config'&&(method==='GET'||method==='PUT'||method==='DELETE'))||
+    (parts.length===2&&parts[1]==='test'&&method==='POST')||
+    (parts.length===2&&parts[1]==='jobs'&&method==='POST')||
+    (parts.length===3&&parts[1]==='jobs'&&method==='GET')
+  ))return NextResponse.json({detail:'Invalid provider endpoint'},{status:404});
+  const adminToken=req.headers.get('x-review-token');
+  if(!adminToken || adminToken.length>512) return NextResponse.json({detail:'Enter your admin review token to manage AI providers.'},{status:403});
+  try {
+    const body=method==='PUT'||(method==='POST'&&parts[1]==='jobs')?await req.text():undefined;
+    if(body && body.length>8192)return NextResponse.json({detail:'Request too large'},{status:413});
+    const backend=await fetch(`${endpoint}/api/${parts.map(encodeURIComponent).join('/')}`,{
+      method, cache:'no-store',
+      headers:{'x-review-token':adminToken,...(body?{'content-type':'application/json'}:{})},
+      body,signal:AbortSignal.timeout(method==='GET'?12000:20000)
+    });
+    return new NextResponse(await backend.text(),{status:backend.status,headers:{'content-type':'application/json','cache-control':'no-store','x-data-mode':'live'}});
+  }catch {
+    return NextResponse.json({detail:'Live SQLite API is unavailable. Provider settings cannot be saved in offline demo mode.'},{status:503,headers:{'cache-control':'no-store'}});
+  }
+}
+
+export async function PUT(req:NextRequest,ctx:Ctx){return providerProxy(req,ctx,'PUT')}
+export async function DELETE(req:NextRequest,ctx:Ctx){return providerProxy(req,ctx,'DELETE')}

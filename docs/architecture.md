@@ -59,3 +59,11 @@ Any invalid/unavailable model response gets at most one retry; persistent `faile
 - Auth missing or wrong -> HTTP 403.
 - Backend unavailable -> frontend read-only fixture mode, review actions disabled.
 - Missing or unsupported authored content -> no invented diagram or option text.
+
+## LLM provider adapters (Gemini, OpenRouter and OpenAI)
+
+`app/core/providers.py` resolves one server-side provider snapshot from environment settings or an authenticated, **memory-only** admin override. All inference calls are routed through the same `AgentClient` JSON-schema/Pydantic validator. The provider snapshot is frozen when a triage job starts, avoiding mixed-model decisions if an admin changes the provider during a run. Model and provider enter the cache fingerprint.
+
+The faculty UI's **AI providers** module uses `x-review-token` for authorization through an explicit Next.js proxy; the proxy never injects its ambient review token into LLM settings requests. No credential is returned from GET /api/llm/config or stored in SQLite. The GUI's key override is in-process and does not affect the standalone CLI, which reads `LLM_PROVIDER` and the chosen provider's key from `.env`.
+
+Single-case `POST /api/llm/jobs` background jobs are intentionally scoped to the local demo. Jobs are registered in SQLite, marked interrupted on server restart and never result in production content mutation. For production concurrency, replace the FastAPI in-process task launch with a durable worker consuming the SQLite queue; do not deploy multiple API worker processes with transient keys.

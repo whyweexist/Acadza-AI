@@ -50,6 +50,12 @@ CREATE INDEX IF NOT EXISTS idx_audit_case ON audit_events(question_id, created_a
 CREATE TABLE IF NOT EXISTS llm_cache (
  fingerprint TEXT PRIMARY KEY, output_json TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS triage_jobs (
+ id TEXT PRIMARY KEY, question_id TEXT NOT NULL REFERENCES cases(question_id),
+ provider TEXT NOT NULL, status TEXT NOT NULL, message TEXT NOT NULL DEFAULT '',
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_triage_jobs_question ON triage_jobs(question_id, created_at);
 """
 
 
@@ -136,10 +142,10 @@ class Database:
             for v in results:
                 await c.execute("INSERT OR REPLACE INTO triage_results VALUES(?,?,?,?)",(v["reportId"],qid,json.dumps(v,ensure_ascii=False),utcnow()))
             await c.execute("UPDATE cases SET triage_status='completed',triage_hash=?,meta_json=?,updated_at=? WHERE question_id=?",(meta["question_hash"],json.dumps(meta,ensure_ascii=False),utcnow(),qid))
-            triage_event_key='triage:'+qid+':'+meta['question_hash']+':'+meta.get('prompt_version','unknown')
+            triage_event_key='triage:'+qid+':'+meta['question_hash']+':'+meta.get('prompt_version','unknown')+':'+meta.get('execution_id','initial')
             await c.execute("INSERT OR IGNORE INTO audit_events VALUES(?,?,?,?,?,?,?,?,?)",
                             (str(uuid.uuid4()),qid,'AI pipeline','triage_generated','{}',
-                             json.dumps({'report_ids':[r['reportId'] for r in results],'question_hash':meta['question_hash'],'routes':[r['route'] for r in results]},ensure_ascii=False),
+                             json.dumps({'report_ids':[r['reportId'] for r in results],'question_hash':meta['question_hash'],'routes':[r['route'] for r in results],'provider':meta.get('provider','unknown'),'models':meta.get('models',{})},ensure_ascii=False),
                              'Generated and stored advisory results, no production mutation',utcnow(),triage_event_key))
             await c.commit()
         except Exception:
@@ -309,3 +315,57 @@ class Database:
             cur=await c.execute("SELECT id,question_id,actor,action,note,created_at FROM audit_events ORDER BY created_at DESC LIMIT ?",(limit,))
             return [dict(x) for x in await cur.fetchall()]
         finally:await c.close()
+
+
+    async def fail_interrupted_jobs(self) -> None:
+        """The demo runner is in-process; never claim old unfinished jobs succeeded."""
+        c=await self.open()
+        try:
+            await c.execute("UPDATE triage_jobs SET status='interrupted',message='API restarted before the verification finished',updated_at=? WHERE status IN ('queued','running')", (utcnow(),))
+            await c.commit()
+        finally:
+            await c.close()
+
+    async def queue_triage(self, qid: str, provider: str) -> dict:
+        c=await self.open()
+        try:
+            await c.execute('BEGIN IMMEDIATE')
+            cur=await c.execute('SELECT status FROM cases WHERE question_id=?', (qid,))
+            case=await cur.fetchone()
+            if not case:
+                raise InvalidReview('Unknown question case')
+            if case['status'] in ('approved','rejected'):
+                raise Conflict('Case was resolved; reopen through a faculty workflow before re-triaging')
+            cur=await c.execute("SELECT * FROM triage_jobs WHERE question_id=? AND status IN ('queued','running') ORDER BY created_at DESC LIMIT 1", (qid,))
+            previous=await cur.fetchone()
+            if previous:
+                await c.commit()
+                return dict(previous)
+            job_id=str(uuid.uuid4())
+            now=utcnow()
+            await c.execute('INSERT INTO triage_jobs(id,question_id,provider,status,message,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',
+                            (job_id,qid,provider,'queued','Waiting for verification worker',now,now))
+            await c.commit()
+            return {'id':job_id,'question_id':qid,'provider':provider,'status':'queued','message':'Waiting for verification worker','created_at':now,'updated_at':now}
+        except Exception:
+            await c.rollback()
+            raise
+        finally:
+            await c.close()
+
+    async def update_job(self, job_id: str, status: str, message: str) -> None:
+        c=await self.open()
+        try:
+            await c.execute('UPDATE triage_jobs SET status=?,message=?,updated_at=? WHERE id=?', (status,message[:500],utcnow(),job_id))
+            await c.commit()
+        finally:
+            await c.close()
+
+    async def job(self, job_id: str) -> dict | None:
+        c=await self.open()
+        try:
+            cur=await c.execute('SELECT * FROM triage_jobs WHERE id=?', (job_id,))
+            row=await cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            await c.close()
